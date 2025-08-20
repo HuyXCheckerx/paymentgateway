@@ -34,8 +34,8 @@ const PaymentProcessor = () => {
     orderId: searchParams.get('orderId') || generateOrderId(),
     amount: parseFloat(searchParams.get('amount')) || 0,
     currency: searchParams.get('currency') || 'SOL',
-    email: searchParams.get('email') || '',
-    telegram: searchParams.get('telegram') || '',
+    email: decodeURIComponent(searchParams.get('email') || ''),
+    telegram: decodeURIComponent(searchParams.get('telegram') || ''),
     timestamp: searchParams.get('timestamp') || new Date().toISOString()
   });
 

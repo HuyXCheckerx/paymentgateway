@@ -13,6 +13,7 @@ function App() {
           <Route path="/process" element={<PaymentProcessor />} />
           <Route path="/status/:orderId" element={<OrderStatus />} />
           <Route path="/admin" element={<Admin />} />
+          <Route path="*" element={<PaymentProcessor />} />
         </Routes>
       </div>
     </Router>
