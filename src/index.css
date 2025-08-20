@@ -1,0 +1,89 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * {
+    border-color: hsl(220 8% 30%);
+  }
+
+  body {
+    background-color: hsl(228 12% 10%);
+    color: hsl(210 30% 95%);
+    font-family: 'Roboto Mono', monospace;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: 'Orbitron', sans-serif;
+    letter-spacing: 0.02em;
+  }
+}
+
+@layer components {
+  .glass-effect {
+    background: hsla(228 10% 15% / 0.6);
+    backdrop-filter: blur(20px) saturate(150%);
+    -webkit-backdrop-filter: blur(20px) saturate(150%);
+    border: 1px solid hsla(220 8% 30% / 0.4);
+  }
+
+  .gradient-text {
+    background: linear-gradient(120deg, hsl(180 100% 50%) 20%, hsl(270 100% 70%) 80%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .cyber-border {
+    border: 2px solid hsl(180 100% 50%);
+    box-shadow: 0 0 20px hsla(180 100% 50% / 0.3);
+  }
+
+  .payment-card {
+    transition: all 0.3s cubic-bezier(0.075, 0.82, 0.165, 1);
+    background: linear-gradient(135deg, hsla(228 10% 15% / 0.8) 0%, hsla(220 8% 25% / 0.6) 100%);
+    backdrop-filter: blur(10px);
+    border: 1px solid hsla(180 100% 50% / 0.2);
+  }
+
+  .payment-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 10px 40px hsla(180 100% 50% / 0.2);
+    border-color: hsl(180 100% 50%);
+  }
+
+  .status-pending {
+    color: hsl(45 100% 60%);
+    background: hsla(45 100% 60% / 0.1);
+  }
+
+  .status-confirmed {
+    color: hsl(120 100% 60%);
+    background: hsla(120 100% 60% / 0.1);
+  }
+
+  .status-failed {
+    color: hsl(0 80% 60%);
+    background: hsla(0 80% 60% / 0.1);
+  }
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: hsl(228 12% 10%);
+}
+
+::-webkit-scrollbar-thumb {
+  background: hsl(220 8% 25%);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: hsl(180 100% 50%);
+}
