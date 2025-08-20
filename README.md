@@ -70,7 +70,7 @@ Update your main Cryoner store's checkout process to redirect here:
 
 ```javascript
 // In CheckoutPage.jsx
-const EXTERNAL_PAYMENT_SITE = 'https://your-payment-site.com/process';
+const EXTERNAL_PAYMENT_SITE = 'https://pay.cryoner.store/process';
 redirectToPaymentSite(EXTERNAL_PAYMENT_SITE, orderDetails);
 ```
 
