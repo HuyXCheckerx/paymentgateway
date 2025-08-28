@@ -16,7 +16,7 @@ const AccessGuard = ({ children }) => {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center p-4">
         <div className="max-w-md w-full text-center">
-          <div className="bg-card border border-border rounded-lg p-8 shadow-lg">
+          <div className="bg-black/20 backdrop-blur-sm border border-white/10 rounded-lg p-8 shadow-lg">
             <AlertTriangle className="w-16 h-16 text-red-400 mx-auto mb-4" />
             <h1 className="text-2xl font-bold text-foreground mb-4">Access Denied</h1>
             <p className="text-muted-foreground mb-6">

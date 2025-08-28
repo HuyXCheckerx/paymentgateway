@@ -362,7 +362,7 @@ const PaymentProcessor = () => {
         </div>
 
         {/* Payment Card */}
-        <div className="payment-card rounded-2xl p-8 mb-6">
+<div className="payment-card rounded-2xl p-8 mb-6 bg-black/20 backdrop-blur-sm border border-white/10">
           {/* Order Info */}
           <div className="flex justify-between items-center mb-6">
             <div>
