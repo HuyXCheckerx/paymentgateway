@@ -5,19 +5,20 @@ import { AlertTriangle, ArrowLeft } from 'lucide-react';
 const AccessGuard = ({ children }) => {
   const [searchParams] = useSearchParams();
   
-  // Debug: Log all parameters
-  console.log('AccessGuard - All URL parameters:', Object.fromEntries(searchParams.entries()));
-  
-  // Check if any required parameters exist
-  const hasRequiredParams = 
+  // Check for secure session ID (new method) or legacy parameters
+  const sessionId = searchParams.get('session');
+  const hasLegacyParams = 
     searchParams.get('data') || 
     searchParams.get('orderId') || 
     searchParams.get('amount') ||
     searchParams.get('currency');
   
-  console.log('AccessGuard - Has required params:', hasRequiredParams);
+  const hasValidAccess = sessionId || hasLegacyParams;
   
-  if (!hasRequiredParams) {
+  console.log('AccessGuard - Session ID:', sessionId);
+  console.log('AccessGuard - Has valid access:', hasValidAccess);
+  
+  if (!hasValidAccess) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center p-4">
         <div className="max-w-md w-full text-center">

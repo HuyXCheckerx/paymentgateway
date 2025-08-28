@@ -25,36 +25,45 @@ import {
   updateOrderStatus
 } from '../utils/cryptoUtils';
 import { decryptOrderData, verifyOrderToken } from '../utils/securityUtils';
+import { getPaymentSession, clearPaymentSession } from '../utils/sessionStorage';
 
 const PaymentProcessor = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   
-  // Order data from URL params - handle both secure and legacy formats
+  // Order data from session storage - secure method with no URL parameters
   const [orderData, setOrderData] = useState(() => {
-    const encryptedData = searchParams.get('data');
-    const token = searchParams.get('token');
+    const sessionId = searchParams.get('session');
     
-    console.log('PaymentProcessor - All URL params:', Object.fromEntries(searchParams.entries()));
-    console.log('PaymentProcessor - Encrypted data exists:', !!encryptedData);
-    console.log('PaymentProcessor - Token exists:', !!token);
+    console.log('PaymentProcessor - Session ID:', sessionId);
     
-    if (encryptedData && token) {
-      // Handle secure encrypted data
-      console.log('PaymentProcessor - Attempting to decrypt data...');
-      const decryptedData = decryptOrderData(encryptedData);
-      console.log('PaymentProcessor - Decrypted data:', decryptedData);
-      
-      if (decryptedData && verifyOrderToken(decryptedData, token)) {
-        console.log('PaymentProcessor - Token verified successfully');
-        return decryptedData;
+    if (sessionId) {
+      // Retrieve data from secure session storage
+      const sessionData = getPaymentSession(sessionId);
+      if (sessionData) {
+        console.log('PaymentProcessor - Retrieved secure session data');
+        // Clear URL parameters to remove traces
+        window.history.replaceState({}, document.title, window.location.pathname);
+        return sessionData;
       } else {
-        console.error('PaymentProcessor - Token verification failed');
+        console.error('PaymentProcessor - Invalid or expired session');
       }
     }
     
-    // Fallback to legacy URL parameters
-    console.log('PaymentProcessor - Using fallback parameters');
+    // Legacy fallback for old URL parameters (will be phased out)
+    const encryptedData = searchParams.get('data');
+    const token = searchParams.get('token');
+    
+    if (encryptedData && token) {
+      const decryptedData = decryptOrderData(encryptedData);
+      if (decryptedData && verifyOrderToken(decryptedData, token)) {
+        // Clear URL parameters to remove traces
+        window.history.replaceState({}, document.title, window.location.pathname);
+        return decryptedData;
+      }
+    }
+    
+    // Final fallback with parameter cleanup
     const fallbackData = {
       orderId: searchParams.get('orderId') || 'UNKNOWN',
       amount: parseFloat(searchParams.get('amount')) || 0,
@@ -66,7 +75,10 @@ const PaymentProcessor = () => {
       cryptoAmount: parseFloat(searchParams.get('cryptoAmount')) || null,
       network: searchParams.get('network') || null
     };
-    console.log('PaymentProcessor - Fallback data:', fallbackData);
+    
+    // Clear URL parameters to remove traces
+    window.history.replaceState({}, document.title, window.location.pathname);
+    
     return fallbackData;
   });
 
@@ -102,23 +114,16 @@ const PaymentProcessor = () => {
       const confirmationTimer = setTimeout(() => {
         setPaymentStatus('confirmed');
         
-        // Send confirmation webhook
-        const DISCORD_WEBHOOK_URL = 'YOUR_DISCORD_WEBHOOK_URL_HERE';
-        if (DISCORD_WEBHOOK_URL !== 'YOUR_DISCORD_WEBHOOK_URL_HERE') {
-          sendDiscordWebhook(DISCORD_WEBHOOK_URL, {
-            ...orderData,
-            status: 'PAYMENT CONFIRMED AFTER 15 MINUTES',
-            paymentAddress,
-            cryptoAmount
-          });
+        // Clear session data after confirmation
+        const sessionId = new URLSearchParams(window.location.search).get('session');
+        if (sessionId) {
+          clearPaymentSession(sessionId);
         }
-        
-        updateOrderStatus(orderData.orderId, 'confirmed', 'auto-confirmed-15min');
       }, 15 * 60 * 1000); // 15 minutes
 
-      return () => clearTimeout(confirmationTimer);
+      return () => clearTimeout(confirmTimer);
     }
-  }, [paymentStatus, paymentAddress, orderData, cryptoAmount]);
+  }, [paymentStatus]);
 
   const initializePayment = async () => {
     try {
