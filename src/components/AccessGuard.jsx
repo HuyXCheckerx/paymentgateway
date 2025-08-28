@@ -5,12 +5,17 @@ import { AlertTriangle, ArrowLeft } from 'lucide-react';
 const AccessGuard = ({ children }) => {
   const [searchParams] = useSearchParams();
   
+  // Debug: Log all parameters
+  console.log('AccessGuard - All URL parameters:', Object.fromEntries(searchParams.entries()));
+  
   // Check if any required parameters exist
   const hasRequiredParams = 
     searchParams.get('data') || 
     searchParams.get('orderId') || 
     searchParams.get('amount') ||
     searchParams.get('currency');
+  
+  console.log('AccessGuard - Has required params:', hasRequiredParams);
   
   if (!hasRequiredParams) {
     return (

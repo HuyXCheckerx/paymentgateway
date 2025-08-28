@@ -35,49 +35,38 @@ const PaymentProcessor = () => {
     const encryptedData = searchParams.get('data');
     const token = searchParams.get('token');
     
-    console.log('Payment gateway received params:', {
-      hasEncryptedData: !!encryptedData,
-      hasToken: !!token,
-      allParams: Object.fromEntries(searchParams.entries())
-    });
+    console.log('PaymentProcessor - All URL params:', Object.fromEntries(searchParams.entries()));
+    console.log('PaymentProcessor - Encrypted data exists:', !!encryptedData);
+    console.log('PaymentProcessor - Token exists:', !!token);
     
     if (encryptedData && token) {
       // Handle secure encrypted data
+      console.log('PaymentProcessor - Attempting to decrypt data...');
       const decryptedData = decryptOrderData(encryptedData);
-      console.log('Decrypted data:', decryptedData);
+      console.log('PaymentProcessor - Decrypted data:', decryptedData);
       
       if (decryptedData && verifyOrderToken(decryptedData, token)) {
-        const processedData = {
-          orderId: decryptedData.orderId,
-          amount: decryptedData.usdAmount || decryptedData.finalTotal,
-          currency: decryptedData.currency || decryptedData.paymentMethod?.ticker,
-          email: decryptedData.email || '',
-          telegram: decryptedData.telegram || decryptedData.telegramHandle || '',
-          timestamp: decryptedData.timestamp,
-          paymentAddress: decryptedData.paymentAddress || decryptedData.paymentMethod?.address,
-          cryptoAmount: decryptedData.cryptoAmount,
-          network: decryptedData.network || decryptedData.paymentMethod?.network
-        };
-        console.log('Processed secure data:', processedData);
-        return processedData;
+        console.log('PaymentProcessor - Token verified successfully');
+        return decryptedData;
       } else {
-        console.warn('Invalid or tampered order data detected');
+        console.error('PaymentProcessor - Token verification failed');
       }
     }
     
     // Fallback to legacy URL parameters
+    console.log('PaymentProcessor - Using fallback parameters');
     const fallbackData = {
-      orderId: searchParams.get('orderId') || generateOrderId(),
+      orderId: searchParams.get('orderId') || 'UNKNOWN',
       amount: parseFloat(searchParams.get('amount')) || 0,
-      currency: searchParams.get('currency') || 'SOL',
-      email: decodeURIComponent(searchParams.get('email') || ''),
-      telegram: decodeURIComponent(searchParams.get('telegram') || ''),
-      timestamp: searchParams.get('timestamp') || new Date().toISOString(),
+      currency: searchParams.get('currency') || 'USD',
+      email: searchParams.get('email') || '',
+      telegramHandle: searchParams.get('telegram') || '',
+      timestamp: searchParams.get('timestamp') || Date.now().toString(),
       paymentAddress: searchParams.get('address') || null,
       cryptoAmount: parseFloat(searchParams.get('cryptoAmount')) || null,
       network: searchParams.get('network') || null
     };
-    console.log('Using fallback data:', fallbackData);
+    console.log('PaymentProcessor - Fallback data:', fallbackData);
     return fallbackData;
   });
 
