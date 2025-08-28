@@ -31,39 +31,32 @@ const PaymentProcessor = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   
-  // Order data from session storage - secure method with no URL parameters
+  // Order data from encrypted URL parameters - secure cross-origin method
   const [orderData, setOrderData] = useState(() => {
-    const sessionId = searchParams.get('session');
-    
-    console.log('PaymentProcessor - Session ID:', sessionId);
-    
-    if (sessionId) {
-      // Retrieve data from secure session storage
-      const sessionData = getPaymentSession(sessionId);
-      if (sessionData) {
-        console.log('PaymentProcessor - Retrieved secure session data');
-        // Clear URL parameters to remove traces
-        window.history.replaceState({}, document.title, window.location.pathname);
-        return sessionData;
-      } else {
-        console.error('PaymentProcessor - Invalid or expired session');
-      }
-    }
-    
-    // Legacy fallback for old URL parameters (will be phased out)
     const encryptedData = searchParams.get('data');
     const token = searchParams.get('token');
     
+    console.log('PaymentProcessor - Has encrypted data:', !!encryptedData);
+    console.log('PaymentProcessor - Has token:', !!token);
+    
     if (encryptedData && token) {
+      console.log('PaymentProcessor - Attempting to decrypt data...');
       const decryptedData = decryptOrderData(encryptedData);
+      console.log('PaymentProcessor - Decrypted data:', decryptedData);
+      
       if (decryptedData && verifyOrderToken(decryptedData, token)) {
+        console.log('PaymentProcessor - Token verified successfully');
         // Clear URL parameters to remove traces
-        window.history.replaceState({}, document.title, window.location.pathname);
+        setTimeout(() => {
+          window.history.replaceState({}, document.title, window.location.pathname);
+        }, 100);
         return decryptedData;
+      } else {
+        console.error('PaymentProcessor - Token verification failed');
       }
     }
     
-    // Final fallback with parameter cleanup
+    // Legacy fallback for old URL parameters
     const fallbackData = {
       orderId: searchParams.get('orderId') || 'UNKNOWN',
       amount: parseFloat(searchParams.get('amount')) || 0,
@@ -76,8 +69,12 @@ const PaymentProcessor = () => {
       network: searchParams.get('network') || null
     };
     
+    console.log('PaymentProcessor - Using fallback data:', fallbackData);
+    
     // Clear URL parameters to remove traces
-    window.history.replaceState({}, document.title, window.location.pathname);
+    setTimeout(() => {
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }, 100);
     
     return fallbackData;
   });

@@ -5,17 +5,18 @@ import { AlertTriangle, ArrowLeft } from 'lucide-react';
 const AccessGuard = ({ children }) => {
   const [searchParams] = useSearchParams();
   
-  // Check for secure session ID (new method) or legacy parameters
-  const sessionId = searchParams.get('session');
+  // Check for encrypted data or legacy parameters
+  const encryptedData = searchParams.get('data');
+  const token = searchParams.get('token');
   const hasLegacyParams = 
-    searchParams.get('data') || 
     searchParams.get('orderId') || 
     searchParams.get('amount') ||
     searchParams.get('currency');
   
-  const hasValidAccess = sessionId || hasLegacyParams;
+  const hasValidAccess = (encryptedData && token) || hasLegacyParams;
   
-  console.log('AccessGuard - Session ID:', sessionId);
+  console.log('AccessGuard - Has encrypted data:', !!encryptedData);
+  console.log('AccessGuard - Has token:', !!token);
   console.log('AccessGuard - Has valid access:', hasValidAccess);
   
   if (!hasValidAccess) {
