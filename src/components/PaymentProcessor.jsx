@@ -24,19 +24,49 @@ import {
   checkPaymentStatus,
   updateOrderStatus
 } from '../utils/cryptoUtils';
+import { decryptOrderData, verifyOrderToken } from '../utils/securityUtils';
 
 const PaymentProcessor = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   
-  // Order data from URL params
-  const [orderData, setOrderData] = useState({
-    orderId: searchParams.get('orderId') || generateOrderId(),
-    amount: parseFloat(searchParams.get('amount')) || 0,
-    currency: searchParams.get('currency') || 'SOL',
-    email: decodeURIComponent(searchParams.get('email') || ''),
-    telegram: decodeURIComponent(searchParams.get('telegram') || ''),
-    timestamp: searchParams.get('timestamp') || new Date().toISOString()
+  // Order data from URL params - handle both secure and legacy formats
+  const [orderData, setOrderData] = useState(() => {
+    const encryptedData = searchParams.get('data');
+    const token = searchParams.get('token');
+    
+    if (encryptedData && token) {
+      // Handle secure encrypted data
+      const decryptedData = decryptOrderData(encryptedData);
+      if (decryptedData && verifyOrderToken(decryptedData, token)) {
+        return {
+          orderId: decryptedData.orderId,
+          amount: decryptedData.usdAmount || decryptedData.finalTotal,
+          currency: decryptedData.paymentMethod?.ticker || decryptedData.currency,
+          email: decryptedData.email || '',
+          telegram: decryptedData.telegramHandle || decryptedData.telegram,
+          timestamp: decryptedData.timestamp,
+          paymentAddress: decryptedData.paymentAddress || decryptedData.paymentMethod?.address,
+          cryptoAmount: decryptedData.cryptoAmount,
+          network: decryptedData.network || decryptedData.paymentMethod?.network
+        };
+      } else {
+        console.warn('Invalid or tampered order data detected');
+      }
+    }
+    
+    // Fallback to legacy URL parameters
+    return {
+      orderId: searchParams.get('orderId') || generateOrderId(),
+      amount: parseFloat(searchParams.get('amount')) || 0,
+      currency: searchParams.get('currency') || 'SOL',
+      email: decodeURIComponent(searchParams.get('email') || ''),
+      telegram: decodeURIComponent(searchParams.get('telegram') || ''),
+      timestamp: searchParams.get('timestamp') || new Date().toISOString(),
+      paymentAddress: null,
+      cryptoAmount: null,
+      network: null
+    };
   });
 
   // Payment states
@@ -65,16 +95,29 @@ const PaymentProcessor = () => {
     }
   }, [timeLeft, paymentStatus]);
 
-  // Auto-check payment status
+  // Auto-confirm payment after 15 minutes (simulate payment confirmation)
   useEffect(() => {
     if (paymentStatus === 'pending' && paymentAddress) {
-      const interval = setInterval(() => {
-        checkPayment();
-      }, 30000); // Check every 30 seconds
+      const confirmationTimer = setTimeout(() => {
+        setPaymentStatus('confirmed');
+        
+        // Send confirmation webhook
+        const DISCORD_WEBHOOK_URL = 'YOUR_DISCORD_WEBHOOK_URL_HERE';
+        if (DISCORD_WEBHOOK_URL !== 'YOUR_DISCORD_WEBHOOK_URL_HERE') {
+          sendDiscordWebhook(DISCORD_WEBHOOK_URL, {
+            ...orderData,
+            status: 'PAYMENT CONFIRMED AFTER 15 MINUTES',
+            paymentAddress,
+            cryptoAmount
+          });
+        }
+        
+        updateOrderStatus(orderData.orderId, 'confirmed', 'auto-confirmed-15min');
+      }, 15 * 60 * 1000); // 15 minutes
 
-      return () => clearInterval(interval);
+      return () => clearTimeout(confirmationTimer);
     }
-  }, [paymentStatus, paymentAddress]);
+  }, [paymentStatus, paymentAddress, orderData, cryptoAmount]);
 
   const initializePayment = async () => {
     try {
@@ -87,15 +130,23 @@ const PaymentProcessor = () => {
 
       setUserInfo({ userIP, userCountry, userAgent });
 
-      // Get crypto prices and calculate amount
-      const prices = await getCryptoPrices();
-      const cryptoPrice = prices[orderData.currency];
-      const requiredAmount = calculateCryptoAmount(orderData.amount, cryptoPrice);
-      setCryptoAmount(requiredAmount);
+      // Use data from main site if available, otherwise calculate
+      let address, requiredAmount;
+      
+      if (orderData.paymentAddress && orderData.cryptoAmount) {
+        // Use address and amount from main site
+        address = orderData.paymentAddress;
+        requiredAmount = orderData.cryptoAmount;
+      } else {
+        // Fallback: generate address and calculate amount
+        const prices = await getCryptoPrices();
+        const cryptoPrice = prices[orderData.currency];
+        requiredAmount = calculateCryptoAmount(orderData.amount, cryptoPrice);
+        address = generateWalletAddress(orderData.currency);
+      }
 
-      // Generate payment address
-      const address = generateWalletAddress(orderData.currency);
       setPaymentAddress(address);
+      setCryptoAmount(requiredAmount);
 
       // Generate QR code
       const qrData = `${orderData.currency}:${address}?amount=${requiredAmount}`;
@@ -107,7 +158,6 @@ const PaymentProcessor = () => {
         ...orderData,
         paymentAddress: address,
         cryptoAmount: requiredAmount,
-        cryptoPrice,
         userIP,
         userCountry,
         userAgent
@@ -133,22 +183,15 @@ const PaymentProcessor = () => {
     
     setIsChecking(true);
     try {
+      // Manual check only updates status display, doesn't confirm payment
+      // Payment will auto-confirm after 15 minutes
       const result = await checkPaymentStatus(paymentAddress, cryptoAmount, orderData.currency);
       
-      if (result.status === 'confirmed') {
-        setPaymentStatus('confirmed');
-        await updateOrderStatus(orderData.orderId, 'confirmed', result.txHash);
-        
-        // Send confirmation webhook
-        const DISCORD_WEBHOOK_URL = 'YOUR_DISCORD_WEBHOOK_URL_HERE';
-        if (DISCORD_WEBHOOK_URL !== 'YOUR_DISCORD_WEBHOOK_URL_HERE') {
-          await sendDiscordWebhook(DISCORD_WEBHOOK_URL, {
-            ...orderData,
-            status: 'PAYMENT CONFIRMED',
-            txHash: result.txHash
-          });
-        }
-      }
+      // Just log the check, don't auto-confirm
+      console.log('Payment check result:', result);
+      
+      // Only show feedback that check was performed
+      // Actual confirmation happens after 15 minutes
     } catch (error) {
       console.error('Payment check error:', error);
     }
@@ -308,20 +351,13 @@ const PaymentProcessor = () => {
                 </div>
               </div>
 
-              {/* Manual Check Button */}
-              <div className="text-center">
-                <button
-                  onClick={checkPayment}
-                  disabled={isChecking}
-                  className="bg-primary hover:bg-primary/90 text-primary-foreground px-6 py-2 rounded-lg font-medium transition-colors disabled:opacity-50"
-                >
-                  {isChecking ? (
-                    <Loader2 className="w-4 h-4 animate-spin inline mr-2" />
-                  ) : (
-                    <RefreshCw className="w-4 h-4 inline mr-2" />
-                  )}
-                  Check Payment Status
-                </button>
+              {/* Payment Info */}
+              <div className="text-center bg-blue-500/10 border border-blue-500/20 rounded-lg p-4">
+                <h4 className="text-blue-400 font-medium mb-2 font-minecraft">⏰ Auto-Confirmation</h4>
+                <p className="text-sm text-foreground/80 font-roboto-mono">
+                  Your payment will be automatically confirmed after the full 15-minute timer expires.
+                  No manual confirmation needed.
+                </p>
               </div>
             </>
           )}
