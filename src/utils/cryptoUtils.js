@@ -72,16 +72,27 @@ export const getCryptoPrices = async () => {
     prices.USDT = 1; // USDT is always 1 USD
     return prices;
   } catch (error) {
-    console.error('Failed to get crypto prices:', error);
-    return { SOL: 100, BTC: 45000, ETH: 2500, USDT: 1 }; // Fallback prices
+    console.error('Failed to fetch crypto prices from Binance:', error);
+    // Fallback prices
+    return {
+      'SOL': 100,
+      'BTC': 45000,
+      'ETH': 2500,
+      'USDT': 1,
+      'BNB': 300,
+      'LTC': 70
+    };
   }
 };
 
 /**
- * Calculate crypto amount from USD
+ * Calculate crypto amount from USD using real-time Binance prices
  */
-export const calculateCryptoAmount = (usdAmount, cryptoPrice) => {
-  return usdAmount / cryptoPrice;
+export const calculateCryptoAmount = async (usdAmount, cryptoTicker) => {
+  const prices = await getCryptoPricesFromBinance();
+  const price = prices[cryptoTicker] || 1;
+  console.log(`Real-time price for ${cryptoTicker}: $${price}`);
+  return usdAmount / price;
 };
 
 /**

@@ -84,13 +84,13 @@ const PaymentProcessor = () => {
   // Payment states
   const [paymentAddress, setPaymentAddress] = useState('');
   const [cryptoAmount, setCryptoAmount] = useState(0);
-  const [qrCodeUrl, setQrCodeUrl] = useState('');
-  const [timeLeft, setTimeLeft] = useState(15 * 60); // 15 minutes
+  const [isChecking, setIsChecking] = useState(false);
+  const [timeRemaining, setTimeRemaining] = useState(15 * 60); // 15 minutes in seconds
+  const [copySuccess, setCopySuccess] = useState(null);
   const [paymentStatus, setPaymentStatus] = useState('pending');
   const [isLoading, setIsLoading] = useState(true);
   const [userInfo, setUserInfo] = useState({});
-  const [copySuccess, setCopySuccess] = useState('');
-  const [isChecking, setIsChecking] = useState(false);
+  const [qrCodeUrl, setQrCodeUrl] = useState('');
 
   // Initialize payment
   useEffect(() => {
@@ -155,8 +155,9 @@ const PaymentProcessor = () => {
         console.log('Fallback: generating address and calculating amount');
         try {
           const prices = await getCryptoPrices();
-          const cryptoPrice = prices[orderData.currency];
-          requiredAmount = calculateCryptoAmount(orderData.amount, cryptoPrice);
+          // Use real-time crypto prices from Binance API
+          requiredAmount = await calculateCryptoAmount(orderData.amount, orderData.currency);
+          console.log(`Calculated crypto amount: ${requiredAmount} ${orderData.currency}`);
           address = generateWalletAddress(orderData.currency);
           console.log('Generated fallback data:', { address, requiredAmount, cryptoPrice });
         } catch (error) {
@@ -170,16 +171,63 @@ const PaymentProcessor = () => {
       setPaymentAddress(address);
       setCryptoAmount(requiredAmount);
 
-      // Generate QR code
+      // Generate QR code with proper format
       try {
-        const qrData = `${orderData.currency}:${address}?amount=${requiredAmount}`;
-        const qrUrl = await QRCode.toDataURL(qrData);
+        let qrData;
+        
+        // Format QR data based on cryptocurrency
+        switch (orderData.currency) {
+          case 'BTC':
+            qrData = `bitcoin:${address}?amount=${requiredAmount}`;
+            break;
+          case 'ETH':
+            qrData = `ethereum:${address}?value=${requiredAmount}`;
+            break;
+          case 'SOL':
+            qrData = `solana:${address}?amount=${requiredAmount}`;
+            break;
+          case 'LTC':
+            qrData = `litecoin:${address}?amount=${requiredAmount}`;
+            break;
+          case 'BNB':
+            qrData = `bnb:${address}?amount=${requiredAmount}`;
+            break;
+          case 'USDT':
+            qrData = `${address}`;
+            break;
+          default:
+            qrData = `${address}`;
+        }
+        
+        console.log('Generating QR code for:', qrData);
+        
+        const qrUrl = await QRCode.toDataURL(qrData, {
+          width: 256,
+          margin: 2,
+          color: {
+            dark: '#000000',
+            light: '#FFFFFF'
+          },
+          errorCorrectionLevel: 'M'
+        });
+        
         setQrCodeUrl(qrUrl);
         console.log('QR code generated successfully');
       } catch (qrError) {
         console.error('QR code generation error:', qrError);
-        // Continue without QR code
-        setQrCodeUrl('');
+        // Generate simple address QR as fallback
+        try {
+          const fallbackQr = await QRCode.toDataURL(address, {
+            width: 256,
+            margin: 2,
+            errorCorrectionLevel: 'M'
+          });
+          setQrCodeUrl(fallbackQr);
+          console.log('Fallback QR code generated');
+        } catch (fallbackError) {
+          console.error('Fallback QR generation failed:', fallbackError);
+          setQrCodeUrl('');
+        }
       }
 
       // Store order in database
@@ -245,9 +293,18 @@ const PaymentProcessor = () => {
     try {
       await navigator.clipboard.writeText(text);
       setCopySuccess(type);
-      setTimeout(() => setCopySuccess(''), 2000);
+      setTimeout(() => setCopySuccess(null), 2000); // Hide after 2 seconds
     } catch (error) {
-      console.error('Copy failed:', error);
+      console.error('Failed to copy:', error);
+      // Fallback for older browsers
+      const textArea = document.createElement('textarea');
+      textArea.value = text;
+      document.body.appendChild(textArea);
+      textArea.select();
+      document.execCommand('copy');
+      document.body.removeChild(textArea);
+      setCopySuccess(type);
+      setTimeout(() => setCopySuccess(null), 2000);
     }
   };
 
@@ -369,7 +426,7 @@ const PaymentProcessor = () => {
                         type="text"
                         value={paymentAddress}
                         readOnly
-                        className="bg-input border border-border rounded px-3 py-2 font-mono text-xs flex-1"
+                        className="bg-input border border-border rounded px-3 py-2 font-mono text-sm flex-1"
                       />
                       <button
                         onClick={() => copyToClipboard(paymentAddress, 'address')}
