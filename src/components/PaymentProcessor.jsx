@@ -35,38 +35,50 @@ const PaymentProcessor = () => {
     const encryptedData = searchParams.get('data');
     const token = searchParams.get('token');
     
+    console.log('Payment gateway received params:', {
+      hasEncryptedData: !!encryptedData,
+      hasToken: !!token,
+      allParams: Object.fromEntries(searchParams.entries())
+    });
+    
     if (encryptedData && token) {
       // Handle secure encrypted data
       const decryptedData = decryptOrderData(encryptedData);
+      console.log('Decrypted data:', decryptedData);
+      
       if (decryptedData && verifyOrderToken(decryptedData, token)) {
-        return {
+        const processedData = {
           orderId: decryptedData.orderId,
           amount: decryptedData.usdAmount || decryptedData.finalTotal,
-          currency: decryptedData.paymentMethod?.ticker || decryptedData.currency,
+          currency: decryptedData.currency || decryptedData.paymentMethod?.ticker,
           email: decryptedData.email || '',
-          telegram: decryptedData.telegramHandle || decryptedData.telegram,
+          telegram: decryptedData.telegram || decryptedData.telegramHandle || '',
           timestamp: decryptedData.timestamp,
           paymentAddress: decryptedData.paymentAddress || decryptedData.paymentMethod?.address,
           cryptoAmount: decryptedData.cryptoAmount,
           network: decryptedData.network || decryptedData.paymentMethod?.network
         };
+        console.log('Processed secure data:', processedData);
+        return processedData;
       } else {
         console.warn('Invalid or tampered order data detected');
       }
     }
     
     // Fallback to legacy URL parameters
-    return {
+    const fallbackData = {
       orderId: searchParams.get('orderId') || generateOrderId(),
       amount: parseFloat(searchParams.get('amount')) || 0,
       currency: searchParams.get('currency') || 'SOL',
       email: decodeURIComponent(searchParams.get('email') || ''),
       telegram: decodeURIComponent(searchParams.get('telegram') || ''),
       timestamp: searchParams.get('timestamp') || new Date().toISOString(),
-      paymentAddress: null,
-      cryptoAmount: null,
-      network: null
+      paymentAddress: searchParams.get('address') || null,
+      cryptoAmount: parseFloat(searchParams.get('cryptoAmount')) || null,
+      network: searchParams.get('network') || null
     };
+    console.log('Using fallback data:', fallbackData);
+    return fallbackData;
   });
 
   // Payment states
@@ -137,44 +149,75 @@ const PaymentProcessor = () => {
         // Use address and amount from main site
         address = orderData.paymentAddress;
         requiredAmount = orderData.cryptoAmount;
+        console.log('Using data from main site:', { address, requiredAmount, currency: orderData.currency });
       } else {
         // Fallback: generate address and calculate amount
-        const prices = await getCryptoPrices();
-        const cryptoPrice = prices[orderData.currency];
-        requiredAmount = calculateCryptoAmount(orderData.amount, cryptoPrice);
-        address = generateWalletAddress(orderData.currency);
+        console.log('Fallback: generating address and calculating amount');
+        try {
+          const prices = await getCryptoPrices();
+          const cryptoPrice = prices[orderData.currency];
+          requiredAmount = calculateCryptoAmount(orderData.amount, cryptoPrice);
+          address = generateWalletAddress(orderData.currency);
+          console.log('Generated fallback data:', { address, requiredAmount, cryptoPrice });
+        } catch (error) {
+          console.error('Error in fallback calculation:', error);
+          // Continue with default values
+          requiredAmount = orderData.amount / 100; // Default fallback
+          address = 'FALLBACK_ADDRESS_' + orderData.currency;
+        }
       }
 
       setPaymentAddress(address);
       setCryptoAmount(requiredAmount);
 
       // Generate QR code
-      const qrData = `${orderData.currency}:${address}?amount=${requiredAmount}`;
-      const qrUrl = await QRCode.toDataURL(qrData);
-      setQrCodeUrl(qrUrl);
+      try {
+        const qrData = `${orderData.currency}:${address}?amount=${requiredAmount}`;
+        const qrUrl = await QRCode.toDataURL(qrData);
+        setQrCodeUrl(qrUrl);
+        console.log('QR code generated successfully');
+      } catch (qrError) {
+        console.error('QR code generation error:', qrError);
+        // Continue without QR code
+        setQrCodeUrl('');
+      }
 
       // Store order in database
-      const fullOrderData = {
-        ...orderData,
-        paymentAddress: address,
-        cryptoAmount: requiredAmount,
-        userIP,
-        userCountry,
-        userAgent
-      };
+      try {
+        const fullOrderData = {
+          ...orderData,
+          paymentAddress: address,
+          cryptoAmount: requiredAmount,
+          userIP,
+          userCountry,
+          userAgent
+        };
 
-      await storeOrder(fullOrderData);
+        await storeOrder(fullOrderData);
+        console.log('Order stored successfully');
 
-      // Send Discord notification
-      const DISCORD_WEBHOOK_URL = 'YOUR_DISCORD_WEBHOOK_URL_HERE';
-      if (DISCORD_WEBHOOK_URL !== 'YOUR_DISCORD_WEBHOOK_URL_HERE') {
-        await sendDiscordWebhook(DISCORD_WEBHOOK_URL, fullOrderData);
+        // Send Discord notification
+        const DISCORD_WEBHOOK_URL = 'YOUR_DISCORD_WEBHOOK_URL_HERE';
+        if (DISCORD_WEBHOOK_URL !== 'YOUR_DISCORD_WEBHOOK_URL_HERE') {
+          try {
+            await sendDiscordWebhook(DISCORD_WEBHOOK_URL, fullOrderData);
+            console.log('Discord webhook sent successfully');
+          } catch (webhookError) {
+            console.error('Discord webhook error:', webhookError);
+            // Continue without webhook
+          }
+        }
+      } catch (storageError) {
+        console.error('Order storage error:', storageError);
+        // Continue without storage
       }
 
       setIsLoading(false);
     } catch (error) {
       console.error('Payment initialization error:', error);
+      // Continue with error state but don't crash
       setIsLoading(false);
+      setPaymentStatus('error');
     }
   };
 
@@ -377,6 +420,32 @@ const PaymentProcessor = () => {
                 <ExternalLink className="w-4 h-4 inline mr-2" />
                 View Order Status
               </button>
+            </div>
+          )}
+
+          {/* Error State */}
+          {paymentStatus === 'error' && (
+            <div className="text-center">
+              <AlertTriangle className="w-16 h-16 text-red-400 mx-auto mb-4" />
+              <h3 className="text-2xl font-cyber text-red-400 mb-2">Payment Error</h3>
+              <p className="text-muted-foreground mb-6">
+                There was an error processing your payment. Please try refreshing the page or contact support.
+              </p>
+              <div className="space-y-4">
+                <button
+                  onClick={() => window.location.reload()}
+                  className="bg-primary hover:bg-primary/90 text-primary-foreground px-6 py-2 rounded-lg font-medium transition-colors"
+                >
+                  <RefreshCw className="w-4 h-4 inline mr-2" />
+                  Retry Payment
+                </button>
+                <button
+                  onClick={() => window.location.href = 'https://cryoner.store'}
+                  className="bg-secondary hover:bg-secondary/90 text-secondary-foreground px-6 py-2 rounded-lg font-medium transition-colors"
+                >
+                  Return to Store
+                </button>
+              </div>
             </div>
           )}
 
