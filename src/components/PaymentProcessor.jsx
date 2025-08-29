@@ -26,6 +26,7 @@ import {
 } from '../utils/cryptoUtils';
 import { decryptOrderData, verifyOrderToken } from '../utils/securityUtils';
 import { getPaymentSession, clearPaymentSession } from '../utils/sessionStorage';
+import Squares from '../Squares';
 
 const PaymentProcessor = () => {
   const [searchParams] = useSearchParams();
@@ -345,11 +346,22 @@ const PaymentProcessor = () => {
   }
 
   return (
-    <div className="min-h-screen p-4 flex items-center justify-center">
+    <div className="min-h-screen p-4 flex items-center justify-center relative overflow-hidden">
+      {/* Squares Background Layer */}
+      <div className="absolute inset-0 z-0 opacity-10">
+        <Squares 
+          speed={0.5} 
+          squareSize={40}
+          direction='diagonal'
+          borderColor='#fff'
+          hoverFillColor='#000'
+        />
+      </div>
+
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="w-full max-w-2xl"
+        className="w-full max-w-2xl relative z-10"
       >
         {/* Header */}
         <div className="text-center mb-8">
@@ -529,7 +541,7 @@ const PaymentProcessor = () => {
         {/* Footer */}
         <div className="text-center text-sm text-muted-foreground">
           <p>Powered by Cryoner Payment Processor</p>
-          <p>Need help? Contact us on Telegram: {orderData.telegram}</p>
+          <p>Need help? Contact us on Telegram: @pillowware</p>
         </div>
       </motion.div>
     </div>
