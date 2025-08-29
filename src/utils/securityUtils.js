@@ -33,8 +33,22 @@ export const createOrderToken = (orderData, secretKey = 'CRYONER_SECRET_2024') =
  * Verify order token to ensure data hasn't been tampered with
  */
 export const verifyOrderToken = (orderData, token, secretKey = 'CRYONER_SECRET_2024') => {
-  const expectedToken = createOrderToken(orderData, secretKey);
-  return expectedToken === token;
+  try {
+    // Handle both old and new data structures
+    const dataToVerify = {
+      orderId: orderData.orderId,
+      finalTotal: orderData.amount || orderData.finalTotal,
+      paymentMethod: { ticker: orderData.currency },
+      telegramHandle: orderData.telegramHandle || orderData.telegram,
+      timestamp: orderData.timestamp
+    };
+    
+    const expectedToken = createOrderToken(dataToVerify, secretKey);
+    return expectedToken === token;
+  } catch (error) {
+    console.error('Token verification error:', error);
+    return false;
+  }
 };
 
 /**

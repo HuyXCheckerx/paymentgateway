@@ -97,13 +97,13 @@ const PaymentProcessor = () => {
 
   // Timer countdown
   useEffect(() => {
-    if (timeLeft > 0 && paymentStatus === 'pending') {
-      const timer = setTimeout(() => setTimeLeft(timeLeft - 1), 1000);
+    if (timeRemaining > 0 && paymentStatus === 'pending') {
+      const timer = setTimeout(() => setTimeRemaining(timeRemaining - 1), 1000);
       return () => clearTimeout(timer);
-    } else if (timeLeft === 0) {
+    } else if (timeRemaining === 0) {
       setPaymentStatus('expired');
     }
-  }, [timeLeft, paymentStatus]);
+  }, [timeRemaining, paymentStatus]);
 
   // Auto-confirm payment after 15 minutes (simulate payment confirmation)
   useEffect(() => {
@@ -166,28 +166,29 @@ const PaymentProcessor = () => {
       try {
         let qrData;
         
-        // Format QR data based on cryptocurrency
+        // Format QR data based on cryptocurrency with proper URI schemes
         switch (orderData.currency) {
           case 'BTC':
-            qrData = `bitcoin:${address}?amount=${requiredAmount}`;
+            qrData = `bitcoin:${address}?amount=${requiredAmount.toFixed(8)}`;
             break;
           case 'ETH':
-            qrData = `ethereum:${address}?value=${requiredAmount}`;
+            qrData = `ethereum:${address}@1?value=${(requiredAmount * 1e18).toFixed(0)}`;
             break;
           case 'SOL':
-            qrData = `solana:${address}?amount=${requiredAmount}`;
+            qrData = `solana:${address}?amount=${requiredAmount.toFixed(9)}&spl-token=native`;
             break;
           case 'LTC':
-            qrData = `litecoin:${address}?amount=${requiredAmount}`;
+            qrData = `litecoin:${address}?amount=${requiredAmount.toFixed(8)}`;
             break;
           case 'BNB':
-            qrData = `bnb:${address}?amount=${requiredAmount}`;
+            qrData = `bnb:${address}?amount=${requiredAmount.toFixed(8)}`;
             break;
           case 'USDT':
-            qrData = `${address}`;
+            // For USDT, include network info in the QR
+            qrData = `${address}?amount=${requiredAmount.toFixed(6)}&token=USDT`;
             break;
           default:
-            qrData = `${address}`;
+            qrData = `${address}?amount=${requiredAmount.toFixed(8)}`;
         }
         
         console.log('Generating QR code for:', qrData);
@@ -211,6 +212,10 @@ const PaymentProcessor = () => {
           const fallbackQr = await QRCode.toDataURL(address, {
             width: 256,
             margin: 2,
+            color: {
+              dark: '#000000',
+              light: '#FFFFFF'
+            },
             errorCorrectionLevel: 'M'
           });
           setQrCodeUrl(fallbackQr);
@@ -369,7 +374,7 @@ const PaymentProcessor = () => {
           {/* Timer */}
           {paymentStatus === 'pending' && (
             <div className="text-center mb-6">
-              <div className="text-3xl font-mono text-primary mb-2">{formatTime(timeLeft)}</div>
+              <div className="text-3xl font-mono text-primary mb-2">{formatTime(timeRemaining)}</div>
               <p className="text-sm text-muted-foreground">Time remaining to complete payment</p>
             </div>
           )}
@@ -380,9 +385,15 @@ const PaymentProcessor = () => {
               <div className="grid md:grid-cols-2 gap-6 mb-6">
                 {/* QR Code */}
                 <div className="text-center">
-                  <div className="bg-white p-4 rounded-lg inline-block mb-4">
-                    <img src={qrCodeUrl} alt="Payment QR Code" className="w-48 h-48" />
-                  </div>
+                  {qrCodeUrl ? (
+                    <div className="bg-white p-4 rounded-lg inline-block mb-4">
+                      <img src={qrCodeUrl} alt="Payment QR Code" className="w-48 h-48" />
+                    </div>
+                  ) : (
+                    <div className="bg-white p-4 rounded-lg inline-block mb-4 w-48 h-48 flex items-center justify-center">
+                      <Loader2 className="w-8 h-8 animate-spin text-gray-400" />
+                    </div>
+                  )}
                   <p className="text-sm text-muted-foreground">Scan with your {orderData.currency} wallet</p>
                 </div>
 

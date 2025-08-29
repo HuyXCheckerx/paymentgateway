@@ -4,26 +4,14 @@ import PaymentProcessor from './components/PaymentProcessor'
 import OrderStatus from './components/OrderStatus'
 import Admin from './components/Admin'
 import AccessGuard from './components/AccessGuard'
-import PrismaticBurst from './PrismaticBurst'
 
 function App() {
   return (
     <Router>
-      <div className="min-h-screen bg-background relative">
-        {/* Animated Background */}
-        <div className="fixed inset-0 z-0">
-          <PrismaticBurst
-            animationType="rotate3d"
-            intensity={2}
-            speed={0.5}
-            distort={1.0}
-            paused={false}
-            offset={{ x: 0, y: 0 }}
-            hoverDampness={0.25}
-            rayCount={24}
-            mixBlendMode="lighten"
-            colors={['#ff007a', '#4d3dff', '#ffffff']}
-          />
+      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-black to-gray-800 relative">
+        {/* Subtle background pattern */}
+        <div className="fixed inset-0 z-0 opacity-5">
+          <div className="absolute inset-0 bg-grid-pattern"></div>
         </div>
         
         {/* Content */}
