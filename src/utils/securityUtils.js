@@ -19,9 +19,9 @@ const simpleHash = (str) => {
 export const createOrderToken = (orderData, secretKey = 'CRYONER_SECRET_2024') => {
   const dataString = [
     orderData.orderId,
-    orderData.finalTotal,
-    orderData.paymentMethod.ticker,
-    orderData.telegramHandle,
+    orderData.finalTotal || orderData.amount,
+    orderData.paymentMethod?.ticker || orderData.currency,
+    orderData.telegramHandle || orderData.telegram,
     orderData.timestamp,
     secretKey
   ].join('|');
